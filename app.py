@@ -174,5 +174,8 @@ def clear_old_service_worker():
     return Response(js, mimetype="application/javascript", headers={"Cache-Control": "no-store"})
 
 
+import os
+
 if __name__ == "__main__":
-    app.run(debug=Config.DEBUG)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
