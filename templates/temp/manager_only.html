@@ -1,0 +1,206 @@
+{% extends "app_base.html" %}
+
+{% block title %}Manager Controls - Qless{% endblock %}
+
+{% block content %}
+  <div class="page-head-row">
+    <div>
+      <h1 class="app-title">Manager Controls &amp; Menu CRUD</h1>
+      <p class="text-soft">Add or edit dishes across campus canteens, manage staff accounts, and adjust 15-minute IST pickup slot capacities.</p>
+    </div>
+    <div class="button-row">
+      <a class="btn btn--secondary btn--sm" href="{{ url_for('analytics.dashboard') }}">
+        <i data-lucide="bar-chart-3"></i> Demand &amp; Analytics
+      </a>
+      <a class="btn btn--outline btn--sm" href="{{ url_for('main.staff_dashboard') }}">
+        <i data-lucide="arrow-left"></i> Back to Queue
+      </a>
+    </div>
+  </div>
+
+  <!-- Add New Dish + Create Staff Account -->
+  <div class="grid grid--2">
+    <section class="card">
+      <h2>Add New Dish to Menu</h2>
+      <form method="post" action="{{ url_for('main.manager_add_menu_item') }}" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-field">
+          <label for="dish_canteen">Campus Canteen</label>
+          <select id="dish_canteen" name="canteen_id">
+            {% for c in canteens %}
+              <option value="{{ c.id }}">{{ c.name }} ({{ c.location }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="dish_name">Dish name</label>
+          <input id="dish_name" name="name" type="text" placeholder="e.g. Paneer Tikka Sandwich" required>
+        </div>
+        <div class="form-field">
+          <label for="dish_desc">Short description</label>
+          <input id="dish_desc" name="description" type="text" placeholder="Grilled cottage cheese with mint chutney." required>
+        </div>
+        <div class="grid grid--2">
+          <div class="form-field">
+            <label for="dish_cat">Category</label>
+            <select id="dish_cat" name="category">
+              <option value="Breakfast">Breakfast</option>
+              <option value="Lunch">Lunch</option>
+              <option value="Snacks" selected>Snacks</option>
+              <option value="Dinner">Dinner</option>
+              <option value="Beverages">Beverages</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="dish_type">Food type</label>
+            <select id="dish_type" name="food_type">
+              <option value="veg">Veg</option>
+              <option value="egg">Egg</option>
+              <option value="non_veg">Non-veg</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid--3">
+          <div class="form-field">
+            <label for="dish_price">Price (Rs.)</label>
+            <input id="dish_price" name="price" type="number" step="1" min="5" value="45" required>
+          </div>
+          <div class="form-field">
+            <label for="dish_prep">Prep (min)</label>
+            <input id="dish_prep" name="prep_time_minutes" type="number" min="1" value="8" required>
+          </div>
+          <div class="form-field">
+            <label for="dish_stock">Initial stock</label>
+            <input id="dish_stock" name="stock_qty" type="number" min="0" value="25" required>
+          </div>
+        </div>
+        <div class="grid grid--2">
+          <div class="form-field">
+            <label for="dish_photo">Upload dish photo</label>
+            <input id="dish_photo" name="photo_file" type="file" accept="image/*">
+          </div>
+          <div class="form-field">
+            <label for="dish_img_url">Or image URL (optional)</label>
+            <input id="dish_img_url" name="image_url" type="url" placeholder="https://...">
+          </div>
+        </div>
+        <label class="checkbox-row">
+          <input type="checkbox" name="is_featured" value="1">
+          <span>Show in "Ready Fast" strip</span>
+        </label>
+        <button class="btn btn--primary btn--sm" type="submit">Add Dish</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Create Staff / Manager Account</h2>
+      <form method="post" action="{{ url_for('main.manager_add_staff') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-field">
+          <label for="staff_name">Full name</label>
+          <input id="staff_name" name="full_name" type="text" placeholder="e.g. Suresh Verma" required>
+        </div>
+        <div class="form-field">
+          <label for="staff_email">Campus email</label>
+          <input id="staff_email" name="email" type="email" placeholder="suresh@qless.edu" required>
+        </div>
+        <div class="grid grid--2">
+          <div class="form-field">
+            <label for="staff_id">Employee ID</label>
+            <input id="staff_id" name="campus_id" type="text" placeholder="EMP003">
+          </div>
+          <div class="form-field">
+            <label for="staff_role">Role</label>
+            <select id="staff_role" name="role">
+              <option value="staff">Staff (Kitchen/Counter)</option>
+              <option value="manager">Canteen Manager</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-field">
+          <label for="staff_pass">Temporary password</label>
+          <input id="staff_pass" name="password" type="password" minlength="8" placeholder="At least 8 characters" required>
+        </div>
+        <button class="btn btn--primary btn--sm" type="submit">Create Account</button>
+      </form>
+
+      {% if staff_users %}
+        <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--color-border);">
+          <h3 style="font-size: 1rem;">Active Canteen Team</h3>
+          <ul class="order-items-list" style="margin: 0; border: 0; padding: 0;">
+            {% for u in staff_users %}
+              <li>
+                <span>{{ u.full_name }} <span class="text-soft">({{ u.email }})</span></span>
+                <span class="badge badge--success">{{ u.role }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+    </section>
+  </div>
+
+  <!-- Manage Existing Menu Items -->
+  <section class="card" style="margin-top: 24px;">
+    <h2>Manage Active Menu Items</h2>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr><th>Dish</th><th>Canteen</th><th>Category</th><th>Price &amp; Stock</th><th>Remove</th></tr>
+        </thead>
+        <tbody>
+          {% for item in menu_items %}
+            <tr>
+              <td><div class="dish-cell"><img class="dish-thumb" src="{{ item.image_url or '/static/img/dishes/veg-thali.jpg' }}" alt="{{ item.name }}"><strong>{{ item.name }}</strong></div></td>
+              <td class="text-small">{{ item.canteen_name }}</td>
+              <td>{{ item.category }}</td>
+              <td>
+                <form class="inline-form" method="post" action="{{ url_for('main.manager_update_menu_item', item_id=item.id) }}" enctype="multipart/form-data">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input class="otp-input" type="number" name="price" step="1" min="0" value="{{ '%.0f'|format(item.price) }}" aria-label="Price">
+                  <input class="otp-input" type="number" name="stock_qty" min="0" value="{{ item.stock_qty }}" aria-label="Stock">
+                  <input class="file-mini" type="file" name="photo_file" accept="image/*" aria-label="Change photo">
+                  <button class="btn btn--secondary btn--sm" type="submit">Update</button>
+                </form>
+              </td>
+              <td>
+                <form method="post" action="{{ url_for('main.manager_archive_menu_item', item_id=item.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="btn btn--outline btn--sm" type="submit">Archive</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Pickup Slot Capacities -->
+  <section class="card" style="margin-top: 24px;">
+    <h2>15-Minute IST Pickup Slot Capacities ({{ slot_day_note }})</h2>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr><th>Pickup Window</th><th>Booked</th><th>Capacity</th><th>Update</th></tr>
+        </thead>
+        <tbody>
+          {% for slot in slots %}
+            <tr>
+              <td class="num"><strong>{{ slot.label }}</strong></td>
+              <td class="num">{{ slot.booked_count }}</td>
+              <td class="num">{{ slot.capacity }}</td>
+              <td>
+                <form class="inline-form" method="post" action="{{ url_for('main.manager_update_slot_capacity', slot_id=slot.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input class="otp-input" type="number" name="capacity" min="1" max="60" value="{{ slot.capacity }}" aria-label="Slot capacity">
+                  <button class="btn btn--secondary btn--sm" type="submit">Save</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endblock %}

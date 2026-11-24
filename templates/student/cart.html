@@ -1,0 +1,146 @@
+{% extends "app_base.html" %}
+
+{% block title %}Your Cart & Pickup Slot - Qless{% endblock %}
+
+{% block content %}
+  <div class="page-head-row">
+    <div>
+      <h1 class="app-title">Your Cart &amp; Pickup Slot</h1>
+      <p class="text-soft">
+        Ordering from <strong>{{ canteen_name }}</strong> ({{ canteen_location }}) &middot; Choose a live 15-minute IST pickup window.
+      </p>
+    </div>
+    <a class="btn btn--outline btn--sm" href="{{ url_for('main.student_menu') }}">
+      <i data-lucide="arrow-left"></i> Back to Menu
+    </a>
+  </div>
+
+  {% if not cart_items %}
+    <div class="card text-center" style="padding: 48px 24px;">
+      <h2>Your cart is empty</h2>
+      <p class="text-soft">Browse today's menu across campus canteens and add dishes to skip the queue.</p>
+      <a class="btn btn--primary" href="{{ url_for('main.student_menu') }}">Browse Menu</a>
+    </div>
+  {% else %}
+    {% if wait_info %}
+      <div class="workload-banner card" role="status">
+        <div class="workload-banner__left">
+          <span class="badge badge--{{ wait_info.load_class }}">{{ wait_info.load_label }}</span>
+          <strong>{{ canteen_name }} Live Kitchen Estimate:</strong>
+          <span class="num">~{{ wait_info.wait_mins }} mins</span>
+          <span class="text-small text-soft">({{ wait_info.active_orders }} active order{% if wait_info.active_orders != 1 %}s{% endif %} in queue)</span>
+        </div>
+        <span class="text-small text-soft">Auto-calculated from live kitchen workload</span>
+      </div>
+    {% endif %}
+
+    <div class="checkout-layout">
+      <!-- Left: cart items -->
+      <section class="card">
+        <div class="card-head-row">
+          <h2>Selected Dishes</h2>
+          <form method="post" action="{{ url_for('main.cart_clear') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn--ghost btn--sm" type="submit">Clear cart</button>
+          </form>
+        </div>
+
+        <div class="cart-list">
+          {% for item in cart_items %}
+            <div class="cart-row">
+              <div class="dish-cell">
+                <img class="dish-thumb" src="{{ item.image_url or '/static/img/dishes/veg-thali.jpg' }}" alt="{{ item.name }}">
+                <div>
+                  <strong>{{ item.name }}</strong>
+                  <div class="cart-item-meta">
+                    <span class="text-small num">Rs. {{ "%.2f"|format(item.price) }} each</span>
+                    <span class="food-type-label food-type-label--{{ item.food_type }}">
+                      {% if item.food_type == 'non_veg' %}● Non-veg{% elif item.food_type == 'egg' %}● Egg{% else %}● Veg{% endif %}
+                    </span>
+                    <span class="text-small dish-rating num">★ {% if item.rating_count %}{{ item.average_rating }} ({{ item.rating_count }}){% else %}New{% endif %}</span>
+                  </div>
+                  <div class="text-small text-soft">
+                    {{ item.category }} &middot; {{ item.canteen_name }} &middot; {{ item.stock_qty }} left in stock
+                  </div>
+                </div>
+              </div>
+
+              <div class="cart-row__right">
+                <div class="qty-stepper">
+                  <form method="post" action="{{ url_for('main.cart_update', item_id=item.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="dec">
+                    <button class="qty-btn" type="submit" aria-label="Decrease">&minus;</button>
+                  </form>
+                  <span class="num">{{ item.qty }}</span>
+                  <form method="post" action="{{ url_for('main.cart_update', item_id=item.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="inc">
+                    <button class="qty-btn" type="submit" aria-label="Increase">+</button>
+                  </form>
+                </div>
+                <strong class="num">Rs. {{ "%.0f"|format(item.subtotal) }}</strong>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+
+        <div class="cart-total">
+          <span>Total to pay</span>
+          <strong class="num">Rs. {{ "%.2f"|format(total_amount) }}</strong>
+        </div>
+      </section>
+
+      <!-- Right: IST pickup slot & verified UPI payment -->
+      <section class="card">
+        <h2>Pickup Slot &amp; Payment</h2>
+        <form method="post" action="{{ url_for('main.checkout') }}" id="checkout-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <div class="form-field">
+            <label for="slot_id">15-minute pickup slots &mdash; {{ slot_day_note }}</label>
+            {% if recommended_slot_id %}
+              <p class="text-small text-soft">Smart pick: the open slot with the most free capacity is preselected to avoid crowding.</p>
+              <select id="slot_id" name="slot_id" required>
+                {% for slot in slots %}
+                  <option value="{{ slot.id }}" {% if slot.remaining == 0 %}disabled{% endif %} {% if slot.id == recommended_slot_id %}selected{% endif %}>
+                    {{ slot.label }} &middot; {% if slot.remaining > 0 %}{{ slot.remaining }} spots left{% else %}Full{% endif %}
+                  </option>
+                {% endfor %}
+              </select>
+              <p class="form-hint">All windows use India Standard Time (IST) in 15-minute intervals.</p>
+            {% else %}
+              <div class="slot-empty" role="status">
+                <strong>No pickup slots are currently open.</strong>
+                <span class="text-small">Please try again shortly or contact the canteen counter.</span>
+              </div>
+            {% endif %}
+          </div>
+
+          <div class="form-field">
+            <label for="payment_method">Payment method</label>
+            <select id="payment_method" name="payment_method">
+              <option value="upi" selected>Verified UPI Payment (Instant UTR Verification)</option>
+              <option value="counter">Pay at Pickup Counter (Cash / Card)</option>
+            </select>
+          </div>
+
+          <div class="form-field" id="upi-id-field">
+            <label for="upi_id">Your UPI ID (VPA)</label>
+            <input id="upi_id" name="upi_id" type="text"
+                   placeholder="e.g. aarav@okaxis or 9876543210@ybl"
+                   autocomplete="off">
+            <span class="form-hint">You'll verify your payment on the next step via UPI QR / deep-link &amp; UTR reference ({{ canteen_upi_vpa }}).</span>
+          </div>
+
+          <button class="btn btn--primary btn--full" type="submit" {% if not recommended_slot_id %}disabled{% endif %}>
+            <i data-lucide="shield-check"></i> Place Order &amp; Continue (Rs. {{ "%.2f"|format(total_amount) }})
+          </button>
+          <p class="form-hint text-center" style="margin-top: 10px;">
+            Live inventory decreases immediately upon order placement. Staff will verify your 4-digit OTP at pickup.
+          </p>
+        </form>
+      </section>
+    </div>
+  {% endif %}
+{% endblock %}

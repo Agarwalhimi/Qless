@@ -1,0 +1,125 @@
+/*
+  variables.css - Mixed Multi-Color Campus Palette
+  Blends Royal Indigo, Vibrant Violet, Ocean Teal, Berry Rose, and Warm Amber
+  across clean pearl surfaces with full Dark Mode support and responsive tokens.
+*/
+
+:root {
+  /* ---------- Mixed multi-color brand palette ---------- */
+  --color-forest: #3730A3;            /* Primary Royal Indigo */
+  --color-forest-hover: #312E81;      /* Deep Indigo hover */
+  --color-violet: #7C3AED;            /* Vibrant Violet blend */
+  --color-leaf: #E11D48;              /* Berry Rose accent */
+  --color-teal: #0D9488;              /* Ocean Teal (ready, verified, fresh) */
+  --color-teal-hover: #0F766E;
+  --color-mint: #EEF2FF;              /* Soft Indigo-Lavender tint */
+  --color-rose-soft: #FFF1F2;         /* Soft Rose tint */
+  --color-teal-soft: #F0FDFA;         /* Soft Teal tint */
+  --color-amber-soft: #FFFBEB;        /* Soft Amber tint */
+  --color-honey: #D97706;             /* Warm Golden Amber (stars, highlights) */
+  --color-tangerine: #F43F5E;         /* Coral Rose alert */
+
+  /* ---------- Multi-color mixed gradients ---------- */
+  --gradient-brand: linear-gradient(135deg, #3730A3 0%, #7C3AED 50%, #E11D48 100%);
+  --gradient-cool: linear-gradient(135deg, #0D9488 0%, #2563EB 100%);
+  --gradient-warm: linear-gradient(135deg, #D97706 0%, #E11D48 100%);
+  --gradient-mesh:
+    radial-gradient(circle at 8% 10%, rgba(124, 58, 237, 0.08), transparent 34%),
+    radial-gradient(circle at 92% 14%, rgba(13, 148, 136, 0.08), transparent 34%),
+    radial-gradient(circle at 50% 95%, rgba(225, 29, 72, 0.06), transparent 38%);
+
+  /* ---------- Status colours ---------- */
+  --color-success-text: #0F766E;
+  --color-success-bg: #CCFBF1;
+  --color-warning-text: #B45309;
+  --color-warning-bg: #FEF3C7;
+  --color-error-text: #BE123C;
+  --color-error-bg: #FFE4E6;
+
+  /* ---------- Surfaces and borders ---------- */
+  --color-background: #F6F8FC;        /* Soft Cool Pearl */
+  --color-surface: #FFFFFF;           /* Crisp White cards */
+  --color-surface-muted: #F1F5F9;     /* Soft Slate headers */
+  --color-border: #E2E8F0;            /* Neutral Slate borders */
+  --color-border-sage: #C7D2FE;       /* Soft Indigo-Lavender borders */
+  --color-border-strong: #CBD5E1;     /* Outline buttons & inputs */
+
+  /* ---------- Text ---------- */
+  --color-text: #0F172A;              /* Rich Midnight Slate */
+  --color-text-soft: #475569;         /* Muted Slate helper text */
+  --color-text-on-dark: #FFFFFF;
+
+  /* ---------- Fonts ---------- */
+  --font-heading: "Outfit", "Segoe UI", Arial, sans-serif;
+  --font-body: "DM Sans", "Inter", "Segoe UI", Arial, sans-serif;
+
+  /* ---------- Type scale (16px readable base) ---------- */
+  --text-hero: clamp(2.15rem, 4.5vw, 3.1rem);
+  --text-hero-mobile: 2.25rem;
+  --text-h2: clamp(1.35rem, 2.5vw, 1.85rem);
+  --text-h2-mobile: 1.5rem;
+  --text-h3: 1.2rem;
+  --text-body: 1rem;
+  --text-small: 0.875rem;
+  --text-caption: 0.78rem;
+
+  /* ---------- Spacing scale ---------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* ---------- Shape ---------- */
+  --radius-control: 12px;
+  --radius-card: 16px;
+  --radius-pill: 9999px;
+
+  /* ---------- Shadows ---------- */
+  --shadow-rest: 0 2px 10px rgba(55, 48, 163, 0.06);
+  --shadow-raised: 0 12px 28px rgba(55, 48, 163, 0.14);
+
+  /* ---------- Layout widths ---------- */
+  --width-site: 1280px;
+  --width-dashboard: 1440px;
+  --width-narrow: 460px;
+
+  /* ---------- Motion ---------- */
+  --speed-fast: 150ms;
+  --speed-normal: 250ms;
+
+  /* ---------- Focus ring ---------- */
+  --focus-ring: 2px solid var(--color-leaf);
+}
+
+/* ---------- Dark Mode Theme ---------- */
+[data-theme="dark"] {
+  --color-forest: #818CF8;
+  --color-forest-hover: #6366F1;
+  --color-violet: #A78BFA;
+  --color-leaf: #FB7185;
+  --color-teal: #2DD4BF;
+  --color-teal-hover: #14B8A6;
+  --color-mint: #1E1B4B;
+  --color-rose-soft: #3B1222;
+  --color-teal-soft: #112E2C;
+  --color-amber-soft: #3B270C;
+  --color-background: #0B1120;
+  --color-surface: #131C31;
+  --color-surface-muted: #1E293B;
+  --color-border: #283548;
+  --color-border-sage: #4338CA;
+  --color-border-strong: #3B4C66;
+  --color-text: #F8FAFC;
+  --color-text-soft: #94A3B8;
+  --color-text-on-dark: #FFFFFF;
+  --color-success-text: #5EEAD4;
+  --color-success-bg: #134E4A;
+  --color-warning-text: #FCD34D;
+  --color-warning-bg: #78350F;
+  --color-error-text: #FDA4AF;
+  --color-error-bg: #881337;
+}

@@ -1,0 +1,251 @@
+{% extends "app_base.html" %}
+
+{% block title %}Analytics & Demand Prediction - Qless{% endblock %}
+
+{% block content %}
+  <div class="page-head-row">
+    <div>
+      <h1 class="app-title">Demand Prediction &amp; Waste Analytics</h1>
+      <p class="text-soft">Historical order demand forecasting, canteen breakdowns, prepared-vs-sold balance, and CSV exports.</p>
+    </div>
+    <div class="button-row">
+      <a class="btn btn--outline btn--sm" href="{{ url_for('analytics.export_orders_csv') }}">
+        <i data-lucide="download"></i> Export Orders CSV
+      </a>
+      <a class="btn btn--primary btn--sm" href="{{ url_for('analytics.export_waste_csv') }}">
+        <i data-lucide="download"></i> Export Waste CSV
+      </a>
+    </div>
+  </div>
+
+  <!-- Canteen Filter Pills -->
+  <div class="category-pills" role="navigation" aria-label="Filter analytics by canteen">
+    <a class="cat-pill {% if not selected_canteen_id %}is-active{% endif %}" href="{{ url_for('analytics.dashboard') }}">All Canteens</a>
+    {% for c in canteens %}
+      <a class="cat-pill {% if selected_canteen_id == c.id %}is-active{% endif %}" href="{{ url_for('analytics.dashboard', canteen=c.id) }}">{{ c.name }}</a>
+    {% endfor %}
+  </div>
+
+  <!-- Headline KPIs -->
+  <div class="kpi-grid">
+    <div class="card kpi-card">
+      <span class="text-small text-soft">Completed &amp; Active Orders</span>
+      <p class="kpi-value num">{{ total_orders }}</p>
+    </div>
+    <div class="card kpi-card">
+      <span class="text-small text-soft">Total Revenue</span>
+      <p class="kpi-value num">Rs. {{ "%.0f"|format(total_revenue) }}</p>
+    </div>
+    <div class="card kpi-card">
+      <span class="text-small text-soft">Food Waste Logged</span>
+      <p class="kpi-value num">{{ total_waste_qty }} <span class="text-small text-soft">({{ "%.1f"|format(total_waste_kg) }} kg)</span></p>
+    </div>
+    <div class="card kpi-card">
+      <span class="text-small text-soft">Student Satisfaction</span>
+      <p class="kpi-value num">{{ avg_rating }}/5 <span class="text-small text-soft">({{ total_reviews }} reviews)</span></p>
+    </div>
+  </div>
+
+  <!-- Historical Demand Prediction Section -->
+  <section class="card" style="margin-top: 24px;">
+    <div class="card-head-row">
+      <div>
+        <h2>Historical Demand Prediction (Tomorrow's Forecast)</h2>
+        <p class="text-small text-soft" style="margin: 0;">Weighted forecast combining 14-day order history, recent 3-day momentum, and food-waste logs.</p>
+      </div>
+      <span class="badge badge--indigo">Data-Driven Prep Plan</span>
+    </div>
+
+    {% if demand_predictions %}
+      <div class="chart-box chart-box--wide" style="margin: 16px 0 20px;">
+        <canvas id="demandChart"></canvas>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Dish</th>
+              <th>Canteen</th>
+              <th>14d Sold</th>
+              <th>Avg / Day</th>
+              <th>Predicted Tomorrow</th>
+              <th>Recommended Batch</th>
+              <th>Signal</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in demand_predictions %}
+              <tr>
+                <td><strong>{{ p.name }}</strong></td>
+                <td class="text-small">{{ p.canteen_name }}</td>
+                <td class="num">{{ p.sold_14d }}</td>
+                <td class="num">{{ p.avg_daily }}</td>
+                <td class="num"><strong>{{ p.predicted_tomorrow }}</strong> portions</td>
+                <td class="num"><strong>{{ p.recommended_batch }}</strong> portions</td>
+                <td>
+                  <span class="badge {% if p.level == 'warning' %}badge--warning{% elif p.level == 'success' %}badge--success{% else %}badge--indigo{% endif %}">
+                    {{ p.trend }}
+                  </span>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="text-soft" style="margin: 0;">Demand predictions will populate automatically as orders are recorded.</p>
+    {% endif %}
+  </section>
+
+  <!-- Charts Grid -->
+  <div class="grid grid--2" style="margin-top: 24px;">
+    <section class="card">
+      <h2>7-Day Orders &amp; Revenue Trend</h2>
+      <div class="chart-box">
+        <canvas id="trendChart"></canvas>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Food Waste by Reason</h2>
+      <div class="chart-box">
+        <canvas id="wasteChart"></canvas>
+      </div>
+    </section>
+  </div>
+
+  <section class="card" style="margin-top: 24px;">
+    <h2>Prepared Batch vs. Sold Portions (Top Dishes)</h2>
+    <div class="chart-box chart-box--wide">
+      <canvas id="dishChart"></canvas>
+    </div>
+  </section>
+
+  <!-- Peak Slots & Canteen Breakdown -->
+  <div class="grid grid--2" style="margin-top: 24px;">
+    <section class="card">
+      <h2>Peak 15-Minute Pickup Windows (IST)</h2>
+      {% if peak_slots %}
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr><th>Pickup Window</th><th>Total Orders</th></tr>
+            </thead>
+            <tbody>
+              {% for s in peak_slots %}
+                <tr>
+                  <td class="num"><strong>{{ s.label }}</strong></td>
+                  <td class="num">{{ s.total_orders }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="text-soft" style="margin: 0;">Peak slot rankings will appear once orders are recorded.</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Canteen-Wise Performance</h2>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>Canteen</th><th>Orders</th><th>Revenue</th></tr>
+          </thead>
+          <tbody>
+            {% for cb in canteen_breakdown %}
+              <tr>
+                <td><strong>{{ cb.name }}</strong></td>
+                <td class="num">{{ cb.total_orders }}</td>
+                <td class="num">Rs. {{ "%.0f"|format(cb.revenue or 0) }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    (function () {
+      if (!window.Chart) return;
+
+      const demandNames = {{ demand_predictions | map(attribute='name') | list | tojson }};
+      const demandAvg = {{ demand_predictions | map(attribute='avg_daily') | list | tojson }};
+      const demandPred = {{ demand_predictions | map(attribute='predicted_tomorrow') | list | tojson }};
+      const demandBatch = {{ demand_predictions | map(attribute='recommended_batch') | list | tojson }};
+
+      const demandEl = document.getElementById("demandChart");
+      if (demandEl && demandNames.length) {
+        new Chart(demandEl, {
+          type: "bar",
+          data: {
+            labels: demandNames,
+            datasets: [
+              { label: "Avg Daily Sold", data: demandAvg, backgroundColor: "rgba(13, 148, 136, 0.55)", borderRadius: 5 },
+              { label: "Predicted Tomorrow", data: demandPred, backgroundColor: "#3730A3", borderRadius: 5 },
+              { label: "Recommended Batch", data: demandBatch, type: "line", borderColor: "#E11D48", backgroundColor: "#E11D48", tension: 0.3 }
+            ]
+          },
+          options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+        });
+      }
+
+      const trendLabels = {{ trend_labels | tojson }};
+      const trendOrders = {{ trend_orders | tojson }};
+      const trendRevenue = {{ trend_revenue | tojson }};
+
+      new Chart(document.getElementById("trendChart"), {
+        type: "bar",
+        data: {
+          labels: trendLabels,
+          datasets: [
+            { label: "Revenue (Rs.)", data: trendRevenue, backgroundColor: "rgba(55, 48, 163, 0.85)", borderRadius: 6, yAxisID: "y" },
+            { label: "Orders", data: trendOrders, type: "line", borderColor: "#E11D48", backgroundColor: "#E11D48", tension: 0.3, yAxisID: "y1" }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { beginAtZero: true, position: "left", title: { display: true, text: "Revenue (Rs.)" } },
+            y1: { beginAtZero: true, position: "right", grid: { drawOnChartArea: false }, title: { display: true, text: "Orders" } }
+          }
+        }
+      });
+
+      const wasteLabels = {{ waste_reason_rows | map(attribute='reason') | list | tojson }};
+      const wasteQtys = {{ waste_reason_rows | map(attribute='qty') | list | tojson }};
+      new Chart(document.getElementById("wasteChart"), {
+        type: "doughnut",
+        data: {
+          labels: wasteLabels.length ? wasteLabels : ["No Waste Logged"],
+          datasets: [{
+            data: wasteQtys.length ? wasteQtys : [1],
+            backgroundColor: ["#E11D48", "#D97706", "#7C3AED", "#0D9488"]
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+
+      const dishNames = {{ dish_rows | map(attribute='name') | list | tojson }};
+      const dishPrepared = {{ dish_rows | map(attribute='prepared') | list | tojson }};
+      const dishSold = {{ dish_rows | map(attribute='sold') | list | tojson }};
+      new Chart(document.getElementById("dishChart"), {
+        type: "bar",
+        data: {
+          labels: dishNames,
+          datasets: [
+            { label: "Prepared Batch", data: dishPrepared, backgroundColor: "rgba(13, 148, 136, 0.45)", borderColor: "#0D9488", borderWidth: 1, borderRadius: 4 },
+            { label: "Sold Portions", data: dishSold, backgroundColor: "#3730A3", borderRadius: 4 }
+          ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+      });
+    })();
+  </script>
+{% endblock %}

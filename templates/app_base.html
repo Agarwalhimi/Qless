@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% from "partials/logo.html" import logo %}
+
+{#
+  app_base.html - Responsive layout for all logged-in screens
+  with Notification Bell Drawer, live Toast container, and mobile bottom tab bar.
+#}
+
+{% block body %}
+  {% set ep = request.endpoint %}
+  <header class="app-bar">
+    <div class="container app-bar__inner">
+      {{ logo() }}
+
+      <nav class="app-bar__nav" aria-label="App navigation">
+        {% if current_user.role == 'student' %}
+          <a class="app-nav__link {% if ep == 'main.student_menu' %}is-active{% endif %}" href="{{ url_for('main.student_menu') }}">
+            <i data-lucide="utensils"></i> Menu
+          </a>
+          <a class="app-nav__link {% if ep == 'main.view_cart' %}is-active{% endif %}" href="{{ url_for('main.view_cart') }}">
+            <i data-lucide="shopping-bag"></i> Cart
+            {% if cart_count > 0 %}<span class="cart-pill num">{{ cart_count }}</span>{% endif %}
+          </a>
+          <a class="app-nav__link {% if ep in ('main.student_orders', 'main.verify_upi_payment') %}is-active{% endif %}" href="{{ url_for('main.student_orders') }}">
+            <i data-lucide="receipt"></i> Orders
+          </a>
+        {% else %}
+          <a class="app-nav__link {% if ep == 'main.staff_dashboard' %}is-active{% endif %}" href="{{ url_for('main.staff_dashboard') }}">
+            <i data-lucide="layout-dashboard"></i> Queue
+          </a>
+          <a class="app-nav__link {% if ep == 'analytics.dashboard' %}is-active{% endif %}" href="{{ url_for('analytics.dashboard') }}">
+            <i data-lucide="bar-chart-3"></i> Analytics
+          </a>
+          {% if current_user.role == 'manager' %}
+            <a class="app-nav__link {% if ep == 'main.manager_settings' %}is-active{% endif %}" href="{{ url_for('main.manager_settings') }}">
+              <i data-lucide="sliders-horizontal"></i> Manager
+            </a>
+          {% endif %}
+        {% endif %}
+        <a class="app-nav__link {% if ep == 'main.account' %}is-active{% endif %}" href="{{ url_for('main.account') }}">
+          <i data-lucide="user"></i> Account
+        </a>
+      </nav>
+
+      <div class="app-bar__right">
+        <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark/light theme">
+          <i data-lucide="moon"></i>
+        </button>
+        <div class="notif-wrap">
+          <button class="notif-bell" id="notif-bell" type="button"
+                  data-csrf="{{ csrf_token() }}"
+                  aria-label="Notifications" aria-expanded="false" aria-controls="notif-drawer">
+            <i data-lucide="bell"></i>
+            <span class="notif-badge num" id="notif-badge" {% if unread_count == 0 %}hidden{% endif %}>{{ unread_count }}</span>
+          </button>
+          <div class="notif-drawer card" id="notif-drawer" hidden>
+            <div class="notif-drawer__head">
+              <strong>Notifications</strong>
+              <button class="btn btn--ghost btn--sm" id="notif-mark-read" type="button">Mark read</button>
+            </div>
+            <div class="notif-drawer__list" id="notif-list">
+              <p class="text-small text-soft" style="margin: 0;">Loading...</p>
+            </div>
+          </div>
+        </div>
+
+        <form class="app-bar__user" method="post" action="{{ url_for('auth.logout') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <span class="app-bar__name">{{ current_user.full_name }}</span>
+          <span class="badge badge--success">{{ current_user.role }}</span>
+          <button class="btn btn--outline btn--sm" type="submit">Log out</button>
+        </form>
+      </div>
+    </div>
+  </header>
+
+  {% include "partials/flash_messages.html" %}
+
+  <main id="main-content" class="app-main">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Global live toast container (always present outside block content) -->
+  <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Mobile bottom tab bar for thumb-friendly navigation on phones -->
+  <nav class="mobile-tabs" aria-label="Mobile navigation">
+    {% if current_user.role == 'student' %}
+      <a class="mobile-tab {% if ep == 'main.student_menu' %}is-active{% endif %}" href="{{ url_for('main.student_menu') }}">
+        <i data-lucide="utensils"></i><span>Menu</span>
+      </a>
+      <a class="mobile-tab {% if ep == 'main.view_cart' %}is-active{% endif %}" href="{{ url_for('main.view_cart') }}">
+        <i data-lucide="shopping-bag"></i><span>Cart{% if cart_count > 0 %} ({{ cart_count }}){% endif %}</span>
+      </a>
+      <a class="mobile-tab {% if ep in ('main.student_orders', 'main.verify_upi_payment') %}is-active{% endif %}" href="{{ url_for('main.student_orders') }}">
+        <i data-lucide="receipt"></i><span>Orders</span>
+      </a>
+    {% else %}
+      <a class="mobile-tab {% if ep == 'main.staff_dashboard' %}is-active{% endif %}" href="{{ url_for('main.staff_dashboard') }}">
+        <i data-lucide="layout-dashboard"></i><span>Queue</span>
+      </a>
+      <a class="mobile-tab {% if ep == 'analytics.dashboard' %}is-active{% endif %}" href="{{ url_for('analytics.dashboard') }}">
+        <i data-lucide="bar-chart-3"></i><span>Analytics</span>
+      </a>
+      {% if current_user.role == 'manager' %}
+        <a class="mobile-tab {% if ep == 'main.manager_settings' %}is-active{% endif %}" href="{{ url_for('main.manager_settings') }}">
+          <i data-lucide="sliders-horizontal"></i><span>Manager</span>
+        </a>
+      {% endif %}
+    {% endif %}
+    <a class="mobile-tab {% if ep == 'main.account' %}is-active{% endif %}" href="{{ url_for('main.account') }}">
+      <i data-lucide="user"></i><span>Account</span>
+    </a>
+  </nav>
+{% endblock %}

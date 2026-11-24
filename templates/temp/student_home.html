@@ -1,0 +1,199 @@
+{% extends "app_base.html" %}
+
+{% block title %}Student Menu - Qless{% endblock %}
+
+{% block content %}
+  {% if announcement %}
+    <div class="announce-banner" role="status">
+      <i data-lucide="megaphone"></i>
+      <div>
+        <strong>{% if announcement.canteen_name %}{{ announcement.canteen_name }} Notice:{% else %}Campus Canteen Notice:{% endif %}</strong>
+        {{ announcement.message }}
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="page-head-row">
+    <div>
+      <h1 class="app-title">Fresh Campus Menu</h1>
+      <p class="text-soft">Hi {{ current_user.full_name }} — choose a campus canteen, check live wait times, and pre-order your 15-minute slot.</p>
+    </div>
+    <div class="button-row">
+      <a class="btn btn--outline" href="{{ url_for('main.student_orders') }}">
+        <i data-lucide="receipt"></i> My Orders
+      </a>
+      <a class="btn btn--primary" href="{{ url_for('main.view_cart') }}">
+        <i data-lucide="shopping-bag"></i>
+        View Cart {% if cart_count > 0 %}(<span class="num">{{ cart_count }}</span>){% endif %}
+      </a>
+    </div>
+  </div>
+
+  <!-- Multiple Canteen Selection with Live Kitchen Workload & Wait Time -->
+  <section class="canteen-selector" aria-label="Select campus canteen">
+    <a class="canteen-card canteen-card--all {% if not selected_canteen_id %}is-selected{% endif %}"
+       href="{{ url_for('main.student_menu', category=selected_category, diet=selected_diet, q=search_q, fast=('1' if fast_only else None), fav=('1' if fav_only else None)) }}">
+      <div class="canteen-card__top">
+        <strong>All Canteens</strong>
+        <span class="badge badge--indigo">{{ canteens|length }} Active</span>
+      </div>
+      <span class="text-small text-soft">Browse every campus counter</span>
+    </a>
+
+    {% for c in canteens %}
+      <a class="canteen-card canteen-card--{{ c.badge_color }} {% if selected_canteen_id == c.id %}is-selected{% endif %}"
+         href="{{ url_for('main.student_menu', canteen=c.id, category=selected_category, diet=selected_diet, q=search_q, fast=('1' if fast_only else None), fav=('1' if fav_only else None)) }}">
+        <div class="canteen-card__top">
+          <strong>{{ c.name }}</strong>
+          <span class="badge badge--{{ c.load_class }} num">~{{ c.wait_mins }} min</span>
+        </div>
+        <span class="text-small text-soft">{{ c.location }}</span>
+        <span class="canteen-card__queue text-small">
+          <i data-lucide="flame"></i> {{ c.active_orders }} in queue &middot; {{ c.load_label }}
+        </span>
+      </a>
+    {% endfor %}
+  </section>
+
+  <!-- Search & quick filters -->
+  <form class="filter-bar card" method="get" action="{{ url_for('main.student_menu') }}">
+    {% if selected_canteen_id %}
+      <input type="hidden" name="canteen" value="{{ selected_canteen_id }}">
+    {% endif %}
+    <div class="filter-bar__search">
+      <i data-lucide="search"></i>
+      <input type="search" name="q" value="{{ search_q }}" placeholder="Search dishes (e.g. Dosa, Biryani, Momos, Chai)..." aria-label="Search menu">
+    </div>
+
+    <select name="diet" aria-label="Filter by food type">
+      <option value="all" {% if selected_diet == 'all' %}selected{% endif %}>All food types</option>
+      <option value="veg" {% if selected_diet == 'veg' %}selected{% endif %}>Veg only</option>
+      <option value="egg" {% if selected_diet == 'egg' %}selected{% endif %}>Egg</option>
+      <option value="non_veg" {% if selected_diet == 'non_veg' %}selected{% endif %}>Non-veg</option>
+    </select>
+
+    <input type="hidden" name="category" value="{{ selected_category }}">
+
+    <label class="chip-toggle">
+      <input type="checkbox" name="fast" value="1" {% if fast_only %}checked{% endif %} onchange="this.form.submit()">
+      <span><i data-lucide="zap"></i> Ready Fast</span>
+    </label>
+
+    <label class="chip-toggle">
+      <input type="checkbox" name="fav" value="1" {% if fav_only %}checked{% endif %} onchange="this.form.submit()">
+      <span><i data-lucide="heart"></i> Favorites</span>
+    </label>
+
+    <button class="btn btn--primary btn--sm" type="submit">Apply</button>
+    {% if search_q or selected_category != 'All' or selected_diet != 'all' or fast_only or fav_only or selected_canteen_id %}
+      <a class="btn btn--ghost btn--sm" href="{{ url_for('main.student_menu') }}">Reset</a>
+    {% endif %}
+  </form>
+
+  <!-- Category pills: Breakfast, Lunch, Snacks, Dinner -->
+  <div class="category-pills" role="navigation" aria-label="Menu categories">
+    {% for cat in categories %}
+      <a class="cat-pill {% if selected_category == cat %}is-active{% endif %}"
+         href="{{ url_for('main.student_menu', canteen=(selected_canteen_id or None), category=cat, diet=selected_diet, q=search_q, fast=('1' if fast_only else None), fav=('1' if fav_only else None)) }}">
+        {{ cat }}
+      </a>
+    {% endfor %}
+  </div>
+
+  <!-- Dish cards grid with item photos, dietary labels, ratings, canteen badge & live stock -->
+  {% if menu_items %}
+    <div class="menu-grid">
+      {% for item in menu_items %}
+        <article class="card dish-card dish-card--photo {% if item.is_sold_out or item.stock_qty <= 0 %}is-sold-out{% endif %}">
+          <div class="dish-card__media">
+            <img class="dish-card__img"
+                 src="{{ item.image_url or '/static/img/dishes/veg-thali.jpg' }}"
+                 alt="{{ item.name }}" loading="lazy">
+            {% if item.is_surplus %}<span class="rescue-badge">Rescue Deal &minus;25%</span>{% endif %}
+            <span class="canteen-pill canteen-pill--{{ item.canteen_color }}">{{ item.canteen_name }}</span>
+            <form class="dish-card__fav-overlay" method="post" action="{{ url_for('main.toggle_favorite', item_id=item.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="fav-btn {% if item.is_favorite %}is-fav{% endif %}" type="submit"
+                      aria-label="{% if item.is_favorite %}Remove from favorites{% else %}Add to favorites{% endif %}">
+                <i data-lucide="heart"></i>
+              </button>
+            </form>
+          </div>
+
+          <div class="dish-card__body">
+            <div class="dish-badges">
+              <span class="food-type-label food-type-label--{{ item.food_type }}">
+                {% if item.food_type == 'non_veg' %}● Non-veg{% elif item.food_type == 'egg' %}● Egg{% else %}● Veg{% endif %}
+              </span>
+              <span class="badge">{{ item.category }}</span>
+              {% if item.is_featured %}
+                <span class="badge badge--success">Ready Fast</span>
+              {% endif %}
+            </div>
+
+            <h2 class="dish-card__title">{{ item.name }}</h2>
+            <p class="dish-card__desc text-soft">{{ item.description }}</p>
+
+            <div class="dish-card__meta">
+              <span><i data-lucide="clock"></i> ~{{ item.prep_time_minutes }} min</span>
+              <span class="dish-rating num">★ {% if item.rating_count %}{{ item.average_rating }} ({{ item.rating_count }}){% else %}New{% endif %}</span>
+              {% if item.is_sold_out or item.stock_qty <= 0 %}
+                <span class="badge badge--error">Sold out</span>
+              {% elif item.stock_qty <= low_stock_limit %}
+                <span class="badge badge--warning">Only {{ item.stock_qty }} left</span>
+              {% else %}
+                <span class="badge badge--teal-soft num">{{ item.stock_qty }} left</span>
+              {% endif %}
+            </div>
+
+            {% if item.allergens %}
+              <p class="dish-card__allergens">Allergens: {{ item.allergens }}</p>
+            {% endif %}
+
+            <div class="dish-card__footer">
+              {% if item.is_surplus %}
+                <div>
+                  <span class="price-old num">Rs. {{ "%.0f"|format(item.price) }}</span>
+                  <span class="dish-price num">Rs. {{ "%.0f"|format(item.price * 0.75) }}</span>
+                </div>
+              {% else %}
+                <span class="dish-price num">Rs. {{ "%.0f"|format(item.price) }}</span>
+              {% endif %}
+
+              {% if item.is_sold_out or item.stock_qty <= 0 %}
+                <button class="btn btn--outline btn--sm" type="button" disabled>Unavailable</button>
+              {% elif item.in_cart_qty > 0 %}
+                <div class="qty-stepper">
+                  <form method="post" action="{{ url_for('main.cart_update', item_id=item.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="dec">
+                    <button class="qty-btn" type="submit" aria-label="Decrease quantity">&minus;</button>
+                  </form>
+                  <span class="num">{{ item.in_cart_qty }}</span>
+                  <form method="post" action="{{ url_for('main.cart_update', item_id=item.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="inc">
+                    <button class="qty-btn" type="submit" aria-label="Increase quantity">+</button>
+                  </form>
+                </div>
+              {% else %}
+                <form method="post" action="{{ url_for('main.cart_add', item_id=item.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="btn btn--primary btn--sm" type="submit">
+                    <i data-lucide="plus"></i> Add
+                  </button>
+                </form>
+              {% endif %}
+            </div>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card text-center" style="padding: 40px 24px;">
+      <h2>No dishes match your filter</h2>
+      <p class="text-soft">Try clearing your search or switching to All canteens &amp; categories.</p>
+      <a class="btn btn--primary" href="{{ url_for('main.student_menu') }}">Show all dishes</a>
+    </div>
+  {% endif %}
+{% endblock %}

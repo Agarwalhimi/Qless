@@ -1,0 +1,20 @@
+{% extends "public_base.html" %}
+
+{% block title %}{{ title }} - Qless{% endblock %}
+
+{% block content %}
+  <div class="container">
+    <div class="error-page">
+      <p class="error-page__code num">{{ code }}</p>
+      <h1 style="font-size: 2rem;">{{ title }}</h1>
+      <p class="text-soft">{{ message }}</p>
+      <p>
+        {% if current_user %}
+          <a class="btn btn--primary" href="{{ url_for('public.open_app') }}">Go to my home page</a>
+        {% else %}
+          <a class="btn btn--primary" href="{{ url_for('public.home') }}">Back to Home</a>
+        {% endif %}
+      </p>
+    </div>
+  </div>
+{% endblock %}

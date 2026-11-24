@@ -1,0 +1,81 @@
+{% extends "public_base.html" %}
+{% from "partials/logo.html" import logo %}
+
+{% block title %}Create account - Qless{% endblock %}
+
+{% block content %}
+  <div class="auth-page">
+    <div class="auth-card">
+
+      <div class="auth-card__brand">
+        {{ logo(style="stacked") }}
+        <p class="auth-card__tagline">Less Waiting. Less Waste. Better Campus.</p>
+      </div>
+
+      <div class="card">
+        <h1>Create a student account</h1>
+        <p class="text-soft">Takes under a minute. You can change your dietary preference later.</p>
+
+        <form method="post" action="{{ url_for('auth.signup') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <div class="form-field">
+            <label for="full_name">Full name</label>
+            <input id="full_name" name="full_name" type="text" value="{{ form.get('full_name', '') }}"
+                   autocomplete="name" required autofocus>
+          </div>
+
+          <div class="form-field">
+            <label for="email">Campus email</label>
+            <input id="email" name="email" type="email" value="{{ form.get('email', '') }}"
+                   autocomplete="email" required>
+          </div>
+
+          <div class="form-field">
+            <label for="campus_id">Campus ID</label>
+            <input id="campus_id" name="campus_id" type="text" value="{{ form.get('campus_id', '') }}"
+                   placeholder="e.g. STU2199" required>
+          </div>
+
+          <div class="form-field">
+            <label for="dietary_preference">Dietary preference</label>
+            <select id="dietary_preference" name="dietary_preference">
+              <option value="any" {% if form.get('dietary_preference') == 'any' %}selected{% endif %}>No preference</option>
+              <option value="veg" {% if form.get('dietary_preference') == 'veg' %}selected{% endif %}>Vegetarian</option>
+              <option value="non_veg" {% if form.get('dietary_preference') == 'non_veg' %}selected{% endif %}>Non-vegetarian</option>
+              <option value="egg" {% if form.get('dietary_preference') == 'egg' %}selected{% endif %}>Eggetarian</option>
+            </select>
+          </div>
+
+          <div class="form-field">
+            <label for="password">Password</label>
+            <div class="password-wrap">
+              <input id="password" name="password" type="password" autocomplete="new-password" required>
+              <button class="password-toggle" type="button" data-toggle-password="password"
+                      aria-label="Show password" aria-pressed="false">
+                <i data-lucide="eye"></i>
+              </button>
+            </div>
+            <span class="form-hint">At least 8 characters, with a letter and a number.</span>
+          </div>
+
+          <div class="form-field">
+            <label for="confirm_password">Confirm password</label>
+            <div class="password-wrap">
+              <input id="confirm_password" name="confirm_password" type="password" autocomplete="new-password" required>
+              <button class="password-toggle" type="button" data-toggle-password="confirm_password"
+                      aria-label="Show password" aria-pressed="false">
+                <i data-lucide="eye"></i>
+              </button>
+            </div>
+          </div>
+
+          <button class="btn btn--primary btn--full" type="submit">Create account</button>
+        </form>
+
+        <p class="auth-links">Already have an account? <a href="{{ url_for('auth.login') }}">Log in</a></p>
+      </div>
+
+    </div>
+  </div>
+{% endblock %}

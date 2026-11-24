@@ -1,0 +1,31 @@
+{% extends "app_base.html" %}
+
+{% block title %}My Account - Qless{% endblock %}
+
+{% block content %}
+  <h1 class="app-title">My Account</h1>
+  <p class="text-soft">View your profile details and update your dietary preference.</p>
+
+  <div class="card" style="max-width: 520px;">
+    <p><strong>Name:</strong> {{ current_user.full_name }}</p>
+    <p><strong>Email:</strong> {{ current_user.email }}</p>
+    {% if current_user.campus_id %}
+      <p><strong>Campus ID:</strong> <span class="num">{{ current_user.campus_id }}</span></p>
+    {% endif %}
+    <p><strong>Role:</strong> <span class="badge badge--success">{{ current_user.role }}</span></p>
+
+    <form method="post" action="{{ url_for('main.account') }}" style="margin-top: 20px;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-field">
+        <label for="dietary_preference">Dietary preference</label>
+        <select id="dietary_preference" name="dietary_preference">
+          <option value="any" {% if current_user.dietary_preference == 'any' %}selected{% endif %}>No preference</option>
+          <option value="veg" {% if current_user.dietary_preference == 'veg' %}selected{% endif %}>Vegetarian</option>
+          <option value="non_veg" {% if current_user.dietary_preference == 'non_veg' %}selected{% endif %}>Non-vegetarian</option>
+          <option value="egg" {% if current_user.dietary_preference == 'egg' %}selected{% endif %}>Eggetarian</option>
+        </select>
+      </div>
+      <button class="btn btn--primary btn--sm" type="submit">Save Preference</button>
+    </form>
+  </div>
+{% endblock %}

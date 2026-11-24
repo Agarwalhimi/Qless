@@ -1,0 +1,347 @@
+{% extends "app_base.html" %}
+
+{% block title %}Canteen Staff Dashboard - Qless{% endblock %}
+
+{% block content %}
+  <div class="page-head-row">
+    <div>
+      <h1 class="app-title">Live Kitchen Queue &amp; Operations</h1>
+      <p class="text-soft">Welcome, {{ current_user.full_name }} ({{ current_user.role|capitalize }}). Switch between campus canteens to manage separate kitchen queues, OTP handovers, and live inventory.</p>
+    </div>
+    <div class="button-row">
+      <a class="btn btn--secondary btn--sm" href="{{ url_for('analytics.dashboard', canteen=(selected_canteen_id or None)) }}">
+        <i data-lucide="bar-chart-3"></i> Demand &amp; Analytics
+      </a>
+      {% if current_user.role == 'manager' %}
+        <a class="btn btn--primary btn--sm" href="{{ url_for('main.manager_settings') }}">
+          <i data-lucide="sliders-horizontal"></i> Manager Controls
+        </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Separate Kitchen Queue Switcher (Multiple Canteens) -->
+  <section class="canteen-selector" aria-label="Filter kitchen queue by canteen">
+    <a class="canteen-card canteen-card--all {% if not selected_canteen_id %}is-selected{% endif %}"
+       href="{{ url_for('main.staff_dashboard') }}">
+      <div class="canteen-card__top">
+        <strong>All Canteens</strong>
+        <span class="badge badge--indigo">Combined View</span>
+      </div>
+      <span class="text-small text-soft">Monitor all {{ canteens|length }} campus kitchens</span>
+    </a>
+    {% for c in canteens %}
+      <a class="canteen-card canteen-card--{{ c.badge_color }} {% if selected_canteen_id == c.id %}is-selected{% endif %}"
+         href="{{ url_for('main.staff_dashboard', canteen=c.id) }}">
+        <div class="canteen-card__top">
+          <strong>{{ c.name }}</strong>
+          <span class="badge badge--{{ c.load_class }} num">~{{ c.wait_mins }} min</span>
+        </div>
+        <span class="text-small text-soft">{{ c.location }}</span>
+        <span class="canteen-card__queue text-small">
+          <i data-lucide="flame"></i> {{ c.active_orders }} active order{% if c.active_orders != 1 %}s{% endif %} &middot; {{ c.load_label }}
+        </span>
+      </a>
+    {% endfor %}
+  </section>
+
+  <!-- Live KPI row -->
+  <div class="kpi-grid">
+    <div class="card kpi-card">
+      <span class="text-small text-soft">Orders Today{% if selected_canteen %} ({{ selected_canteen.name }}){% endif %}</span>
+      <p class="kpi-value num">{{ orders_today }}</p>
+    </div>
+    <div class="card kpi-card">
+      <span class="text-small text-soft">Revenue Today</span>
+      <p class="kpi-value num">Rs. {{ "%.0f"|format(revenue_today) }}</p>
+    </div>
+    <div class="card kpi-card">
+      <span class="text-small text-soft">Waste Logged Today</span>
+      <p class="kpi-value num">{{ waste_qty_today }} <span class="text-small text-soft">({{ "%.1f"|format(waste_kg_today) }} kg)</span></p>
+    </div>
+    <div class="card kpi-card">
+      <span class="text-small text-soft">Student Rating</span>
+      <p class="kpi-value num">{{ avg_rating }} <span class="text-small text-soft">({{ rating_count }} reviews)</span></p>
+    </div>
+  </div>
+
+  <!-- Live Order Queue -->
+  <section class="card" style="margin-top: 24px;">
+    <div class="card-head-row">
+      <h2>
+        {% if selected_canteen %}{{ selected_canteen.name }} — Live Kitchen Queue{% else %}All Canteens — Live Order Queue{% endif %}
+      </h2>
+      <span class="badge badge--indigo">Staff OTP Verification Required for Handover</span>
+    </div>
+
+    {% if not live_orders %}
+      <p class="text-soft" style="margin: 0;">No active orders in this kitchen queue right now. New student orders will appear here immediately.</p>
+    {% else %}
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Order &amp; Canteen</th>
+              <th>Student</th>
+              <th>IST Slot</th>
+              <th>Items</th>
+              <th>Payment</th>
+              <th>Status</th>
+              <th>Kitchen Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for order in live_orders %}
+              <tr>
+                <td class="num">
+                  <strong>#{{ order.id }}</strong><br>
+                  <span class="badge badge--{{ order.canteen_color }}">{{ order.canteen_name }}</span>
+                </td>
+                <td>
+                  {{ order.student_name }}<br>
+                  <span class="text-small text-soft">{{ order.campus_id or '' }}</span>
+                </td>
+                <td class="num">
+                  {{ order.slot_label }}<br>
+                  <span class="text-small text-soft">Est. ~{{ order.estimated_wait_mins }}m</span>
+                </td>
+                <td>
+                  {% for it in order['items'] %}
+                    {{ it.quantity }}&times; {{ it.name }}{% if not loop.last %}, {% endif %}
+                  {% endfor %}
+                </td>
+                <td>
+                  {% if order.payment_status == 'paid' and order.payment_method in ('upi', 'mock_upi') %}
+                    <span class="badge badge--success">UPI Verified</span>
+                    {% if order.upi_txn_ref %}<div class="text-small text-soft num">UTR {{ order.upi_txn_ref }}</div>{% endif %}
+                  {% elif order.payment_status == 'paid' %}
+                    <span class="badge badge--success">Paid</span>
+                  {% else %}
+                    <span class="badge badge--warning">{{ order.payment_method|upper }} ({{ order.payment_status }})</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <span class="badge {% if order.status in ('ready', 'collected') %}badge--success{% elif order.status == 'cancelled' %}badge--error{% elif order.status == 'preparing' %}badge--warning{% else %}badge--indigo{% endif %}">
+                    {{ order.status|capitalize }}
+                  </span>
+                </td>
+                <td>
+                  {% if order.status == 'confirmed' %}
+                    <div class="inline-form">
+                      <form method="post" action="{{ url_for('main.staff_update_order_status', order_id=order.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        {% if selected_canteen_id %}<input type="hidden" name="canteen_filter" value="{{ selected_canteen_id }}">{% endif %}
+                        <button class="btn btn--primary btn--sm" type="submit">Accept Order</button>
+                      </form>
+                      <form method="post" action="{{ url_for('main.staff_reject_order', order_id=order.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="btn btn--outline btn--sm" type="submit">Reject</button>
+                      </form>
+                    </div>
+                  {% elif order.status == 'preparing' %}
+                    <form method="post" action="{{ url_for('main.staff_update_order_status', order_id=order.id) }}">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      {% if selected_canteen_id %}<input type="hidden" name="canteen_filter" value="{{ selected_canteen_id }}">{% endif %}
+                      <button class="btn btn--teal btn--sm" type="submit">Mark Ready &amp; Notify</button>
+                    </form>
+                  {% elif order.status == 'ready' %}
+                    <form class="inline-form" method="post" action="{{ url_for('main.staff_update_order_status', order_id=order.id) }}">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      {% if selected_canteen_id %}<input type="hidden" name="canteen_filter" value="{{ selected_canteen_id }}">{% endif %}
+                      <input class="otp-input num" type="text" name="pickup_otp" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" placeholder="4-digit OTP" aria-label="Verify 4-digit student OTP" required>
+                      <button class="btn btn--primary btn--sm" type="submit">Verify OTP</button>
+                    </form>
+                  {% elif order.status == 'collected' %}
+                    <span class="badge badge--success">OTP Verified</span>
+                  {% else %}
+                    <span class="text-small text-soft">Cancelled</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </section>
+
+  <!-- Two-column tools: Announcements + Waste Logger -->
+  <div class="grid grid--2" style="margin-top: 24px;">
+    <section class="card">
+      <h2>Broadcast Student Announcement</h2>
+      {% if announcement %}
+        <p class="text-small text-soft">Current notice: <strong>{{ announcement.message }}</strong></p>
+      {% endif %}
+      <form method="post" action="{{ url_for('main.staff_post_announcement') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-field">
+          <label for="announce_canteen">Target canteen</label>
+          <select id="announce_canteen" name="canteen_id">
+            <option value="">All Campus Canteens</option>
+            {% for c in canteens %}
+              <option value="{{ c.id }}" {% if selected_canteen_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="announce_msg">New live notice</label>
+          <input id="announce_msg" name="message" type="text" maxlength="240"
+                 placeholder="e.g. Fresh Veg Biryani ready at Counter 1!" required>
+        </div>
+        <button class="btn btn--primary btn--sm" type="submit">Publish Notice</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Log Food Waste</h2>
+      <form method="post" action="{{ url_for('main.staff_log_waste') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-field">
+          <label for="waste_item">Dish</label>
+          <select id="waste_item" name="menu_item_id" required>
+            {% for item in menu_items %}
+              <option value="{{ item.id }}">{{ item.name }} ({{ item.canteen_name }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="grid grid--2">
+          <div class="form-field">
+            <label for="waste_qty">Portions wasted</label>
+            <input id="waste_qty" name="quantity_wasted" type="number" min="1" value="1" required>
+          </div>
+          <div class="form-field">
+            <label for="waste_kg">Weight (kg)</label>
+            <input id="waste_kg" name="weight_kg" type="number" step="0.1" min="0" placeholder="0.5">
+          </div>
+        </div>
+        <div class="form-field">
+          <label for="waste_reason">Reason</label>
+          <select id="waste_reason" name="reason">
+            <option value="overproduction">Overproduction</option>
+            <option value="uncollected">Uncollected order</option>
+            <option value="spoilage">Spoilage</option>
+          </select>
+        </div>
+        <button class="btn btn--outline btn--sm" type="submit">Save Waste Log</button>
+      </form>
+    </section>
+  </div>
+
+  <!-- Live Stock Controls -->
+  <section class="card" style="margin-top: 24px;">
+    <h2>Live Inventory &amp; Quick Restock</h2>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Dish</th>
+            <th>Canteen</th>
+            <th>Category</th>
+            <th>Price</th>
+            <th>Stock</th>
+            <th>Quick Controls</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in menu_items %}
+            <tr>
+              <td><div class="dish-cell"><img class="dish-thumb" src="{{ item.image_url or '/static/img/dishes/veg-thali.jpg' }}" alt="{{ item.name }}"><strong>{{ item.name }}</strong></div></td>
+              <td><span class="text-small">{{ item.canteen_name }}</span></td>
+              <td>{{ item.category }}</td>
+              <td class="num">Rs. {{ "%.0f"|format(item.price) }}</td>
+              <td class="num">
+                {% if item.is_sold_out or item.stock_qty <= 0 %}
+                  <span class="badge badge--error">Sold out</span>
+                {% elif item.stock_qty <= low_stock_limit %}
+                  <span class="badge badge--warning">{{ item.stock_qty }} left</span>
+                {% else %}
+                  {{ item.stock_qty }}
+                {% endif %}
+              </td>
+              <td>
+                <div class="inline-form">
+                  <form method="post" action="{{ url_for('main.staff_update_stock', item_id=item.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="restock">
+                    <button class="btn btn--secondary btn--sm" type="submit">+10 Stock</button>
+                  </form>
+                  <form method="post" action="{{ url_for('main.staff_update_stock', item_id=item.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="toggle_sold_out">
+                    <button class="btn btn--outline btn--sm" type="submit">
+                      {% if item.is_sold_out %}Mark Available{% else %}Sold Out{% endif %}
+                    </button>
+                  </form>
+                  <form method="post" action="{{ url_for('main.staff_update_stock', item_id=item.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="toggle_surplus">
+                    <button class="btn {% if item.is_surplus %}btn--primary{% else %}btn--ghost{% endif %} btn--sm" type="submit">
+                      {% if item.is_surplus %}Rescue ON (-25%){% else %}Rescue -25%{% endif %}
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Recent Student Feedback & Recent Waste Logs -->
+  <div class="grid grid--2" style="margin-top: 24px;">
+    <section class="card">
+      <h2>Recent Student Ratings &amp; Feedback</h2>
+      {% if recent_feedback %}
+        <div class="feedback-list">
+          {% for fb in recent_feedback %}
+            <div class="feedback-item">
+              <div class="feedback-item__head">
+                <strong>{{ fb.student_name }}</strong>
+                <span class="star-display" aria-label="{{ fb.rating }} stars">
+                  {% for s in range(1, 6) %}{% if s <= fb.rating %}★{% else %}☆{% endif %}{% endfor %}
+                </span>
+              </div>
+              <div class="text-small text-soft">Order #{{ fb.order_id }} &middot; {{ fb.canteen_name }}</div>
+              {% if fb.comment %}
+                <p class="text-small" style="margin: 4px 0 0;">"{{ fb.comment }}"</p>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-soft" style="margin: 0;">Student ratings and meal feedback will appear here after orders are collected.</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Recent Waste Logs</h2>
+      {% if recent_waste %}
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Dish</th>
+                <th>Portions</th>
+                <th>Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for w in recent_waste %}
+                <tr>
+                  <td class="num">{{ w.waste_date }}</td>
+                  <td>{{ w.dish_name }}</td>
+                  <td class="num">{{ w.quantity_wasted }}</td>
+                  <td><span class="badge badge--warning">{{ w.reason }}</span></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="text-soft" style="margin: 0;">No waste entries logged yet.</p>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

@@ -1,0 +1,220 @@
+{% extends "app_base.html" %}
+
+{% block title %}My Orders - Qless{% endblock %}
+
+{% block content %}
+  <div class="page-head-row" data-poll-orders="true">
+    <div>
+      <h1 class="app-title">Live Order Tracker</h1>
+      <p class="text-soft">Real-time status, automatic kitchen wait times, verified UPI status, and 15-minute pickup passes.</p>
+    </div>
+    <a class="btn btn--primary btn--sm" href="{{ url_for('main.student_menu') }}">
+      <i data-lucide="plus"></i> New Order
+    </a>
+  </div>
+
+  <!-- Live Ready Alert Banner (auto-shown if any order is ready) -->
+  {% if counts.ready > 0 %}
+    <div class="ready-alert-banner" role="alert">
+      <i data-lucide="bell-ring"></i>
+      <div>
+        <strong>{{ counts.ready }} order{% if counts.ready != 1 %}s{% endif %} READY for pickup!</strong>
+        Show your 4-digit Pickup OTP to canteen staff at the counter to collect your meal.
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Filter Tabs -->
+  {% if all_orders_count > 0 %}
+    <div class="category-pills" role="navigation" aria-label="Filter orders by status">
+      <a class="cat-pill {% if status_filter == 'all' %}is-active{% endif %}" href="{{ url_for('main.student_orders', filter='all') }}">
+        All (<span class="num">{{ counts.all }}</span>)
+      </a>
+      <a class="cat-pill {% if status_filter == 'active' %}is-active{% endif %}" href="{{ url_for('main.student_orders', filter='active') }}">
+        Active (<span class="num">{{ counts.active }}</span>)
+      </a>
+      <a class="cat-pill {% if status_filter == 'ready' %}is-active{% endif %}" href="{{ url_for('main.student_orders', filter='ready') }}">
+        Ready Now (<span class="num">{{ counts.ready }}</span>)
+      </a>
+      <a class="cat-pill {% if status_filter == 'completed' %}is-active{% endif %}" href="{{ url_for('main.student_orders', filter='completed') }}">
+        Completed (<span class="num">{{ counts.completed }}</span>)
+      </a>
+    </div>
+  {% endif %}
+
+  {% if not orders %}
+    <div class="card text-center" style="padding: 48px 24px;">
+      <h2>{% if all_orders_count > 0 %}No orders in this filter{% else %}No orders yet{% endif %}</h2>
+      <p class="text-soft">
+        {% if all_orders_count > 0 %}
+          Switch back to All Orders to view your full order history.
+        {% else %}
+          Place your first pre-order from the menu to get an instant 15-minute IST pickup slot &amp; OTP.
+        {% endif %}
+      </p>
+      <a class="btn btn--primary" href="{% if all_orders_count > 0 %}{{ url_for('main.student_orders') }}{% else %}{{ url_for('main.student_menu') }}{% endif %}">
+        {% if all_orders_count > 0 %}View All Orders{% else %}Explore Menu{% endif %}
+      </a>
+    </div>
+  {% else %}
+    {% set status_labels = {
+      'confirmed': 'Placed (In Queue)',
+      'preparing': 'Kitchen Preparing',
+      'ready': 'Ready for Pickup',
+      'collected': 'Collected (OTP Verified)',
+      'cancelled': 'Cancelled'
+    } %}
+    <div class="stack">
+      {% for order in orders %}
+        <article class="card order-card {% if order.status == 'ready' %}order-card--ready{% endif %}"
+                 data-order-id="{{ order.id }}"
+                 data-order-status="{{ order.status }}">
+          <div class="order-card__head">
+            <div class="order-card__title-group">
+              <div class="order-card__id-row">
+                <strong class="num">Order #{{ order.id }}</strong>
+                <span class="badge badge--{{ order.canteen_color }}">{{ order.canteen_name }}</span>
+              </div>
+              <div class="text-soft text-small">
+                Slot <strong class="num">{{ order.slot_label }}</strong> &middot; {{ order.canteen_location }}
+              </div>
+            </div>
+
+            <div class="order-card__badges">
+              <span class="badge order-status-badge {% if order.status in ('ready', 'collected') %}badge--success{% elif order.status == 'cancelled' %}badge--error{% elif order.status == 'preparing' %}badge--warning{% else %}badge--indigo{% endif %}">
+                {{ status_labels.get(order.status, order.status|capitalize) }}
+              </span>
+              {% if order.status in ('confirmed', 'preparing') %}
+                <span class="badge badge--{{ order.load_class }} num order-wait-badge" data-wait-order="{{ order.id }}">
+                  <i data-lucide="clock"></i> ~{{ order.live_wait_mins }} min wait{% if order.queue_ahead > 0 %} ({{ order.queue_ahead }} ahead){% endif %}
+                </span>
+              {% endif %}
+              <button type="button" class="otp-pill copy-otp-btn num" data-copy-otp="{{ order.pickup_otp }}" title="Click to copy OTP">
+                OTP: {{ order.pickup_otp }} <i data-lucide="copy"></i>
+              </button>
+            </div>
+          </div>
+
+          {% if order.status in ('confirmed', 'preparing', 'ready') %}
+            <div class="pickup-pass {% if order.status == 'ready' %}pickup-pass--ready{% endif %}">
+              <div class="pickup-pass__qr" aria-hidden="true">
+                <i data-lucide="qr-code"></i>
+              </div>
+              <div class="pickup-pass__info">
+                <div class="text-small text-soft">Digital Pickup Pass &middot; {{ order.canteen_name }} &middot; Slot {{ order.slot_label }}</div>
+                <div>
+                  <strong class="num">{{ order.qr_token }}</strong> &middot;
+                  <span class="num">Pickup OTP: <strong>{{ order.pickup_otp }}</strong></span>
+                </div>
+                <div class="text-small text-soft">
+                  {% if order.status == 'ready' %}
+                    Your meal is ready! Show this 4-digit OTP to canteen staff at the counter to complete pickup.
+                  {% else %}
+                    Staff will verify your 4-digit OTP at the counter when handing over your order.
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          {% endif %}
+
+          {% if order.status != 'cancelled' %}
+            {% set step_map = {'confirmed': 1, 'preparing': 2, 'ready': 3, 'collected': 4} %}
+            {% set cur_step = step_map.get(order.status, 1) %}
+            <div class="stepper" aria-label="Order status progress">
+              <div class="step {% if cur_step >= 1 %}is-done{% endif %}">1. Placed</div>
+              <div class="step {% if cur_step >= 2 %}is-done{% endif %}">2. Preparing</div>
+              <div class="step {% if cur_step >= 3 %}is-done{% endif %}">3. Ready</div>
+              <div class="step {% if cur_step >= 4 %}is-done{% endif %}">4. Collected</div>
+            </div>
+          {% endif %}
+
+          <ul class="order-items-list">
+            {% for it in order['items'] %}
+              <li class="order-item-row">
+                <div class="dish-cell">
+                  <img class="dish-thumb" src="{{ it.image_url or '/static/img/dishes/veg-thali.jpg' }}" alt="{{ it.name }}">
+                  <span>
+                    <strong>{{ it.quantity }} &times;</strong> {{ it.name }}
+                    <span class="food-type-label food-type-label--{{ it.food_type }}">
+                      {% if it.food_type == 'non_veg' %}●{% elif it.food_type == 'egg' %}●{% else %}●{% endif %}
+                    </span>
+                  </span>
+                </div>
+                <span class="num text-soft">Rs. {{ "%.0f"|format((it.unit_price or 0) * (it.quantity or 1)) }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+
+          <div class="order-card__foot">
+            <div class="order-payment-meta">
+              <strong class="num">Total: Rs. {{ "%.2f"|format(order.total_amount or 0) }}</strong>
+              {% if order.payment_status == 'paid' and order.payment_method in ('upi', 'mock_upi') %}
+                <span class="badge badge--success">
+                  <i data-lucide="shield-check"></i> UPI Verified{% if order.upi_txn_ref %} &middot; UTR {{ order.upi_txn_ref }}{% endif %}
+                </span>
+              {% elif order.payment_status == 'paid' %}
+                <span class="badge badge--success">Paid at Counter</span>
+              {% elif order.payment_status == 'refunded' %}
+                <span class="badge badge--warning">Refunded</span>
+              {% elif order.payment_method == 'upi' %}
+                <span class="badge badge--warning">UPI Verification Pending</span>
+              {% else %}
+                <span class="badge">Pay at Counter</span>
+              {% endif %}
+            </div>
+
+            <div class="button-row">
+              {% if order.payment_method == 'upi' and order.payment_status == 'pending' and order.status != 'cancelled' %}
+                <a class="btn btn--teal btn--sm" href="{{ url_for('main.verify_upi_payment', order_id=order.id) }}">
+                  <i data-lucide="shield-check"></i> Complete UPI Verification
+                </a>
+              {% endif %}
+
+              {% if order.status == 'confirmed' %}
+                <form method="post" action="{{ url_for('main.cancel_order', order_id=order.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="btn btn--outline btn--sm" type="submit">Cancel Order</button>
+                </form>
+              {% endif %}
+
+              <form method="post" action="{{ url_for('main.reorder', order_id=order.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn--secondary btn--sm" type="submit">
+                  <i data-lucide="rotate-ccw"></i> Reorder
+                </button>
+              </form>
+            </div>
+          </div>
+
+          {% if order.status == 'collected' %}
+            <div class="rating-box">
+              {% if order.user_rating %}
+                <p class="text-small" style="margin: 0;">
+                  <strong>Your Rating:</strong>
+                  <span class="star-display" aria-label="{{ order.user_rating }} out of 5 stars">
+                    {% for s in range(1, 6) %}{% if s <= order.user_rating %}★{% else %}☆{% endif %}{% endfor %}
+                  </span>
+                  ({{ order.user_rating }}/5)
+                  {% if order.user_comment %} &mdash; "{{ order.user_comment }}"{% endif %}
+                </p>
+              {% else %}
+                <form class="rating-form" method="post" action="{{ url_for('main.rate_order', order_id=order.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <label class="text-small" for="rating-{{ order.id }}"><strong>Rate your meal:</strong></label>
+                  <div class="star-picker" data-star-picker>
+                    {% for star in range(5, 0, -1) %}
+                      <input type="radio" id="star-{{ order.id }}-{{ star }}" name="rating" value="{{ star }}" {% if star == 5 %}checked{% endif %} required>
+                      <label for="star-{{ order.id }}-{{ star }}" title="{{ star }} stars">★</label>
+                    {% endfor %}
+                  </div>
+                  <input type="text" name="comment" placeholder="Share quick feedback on food quality or wait time..." maxlength="200">
+                  <button class="btn btn--primary btn--sm" type="submit">Submit Feedback</button>
+                </form>
+              {% endif %}
+            </div>
+          {% endif %}
+        </article>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endblock %}

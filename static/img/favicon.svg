@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="32" height="32">
+  <title>Qless</title>
+  <circle cx="24" cy="24" r="14" fill="none" stroke="#3730A3" stroke-width="6"/>
+  <path d="M27 27 C33 27 42 33 41 43 C31 44 25 37 27 27 Z" fill="#E11D48"/>
+  <circle cx="41" cy="43" r="3.5" fill="#0D9488"/>
+</svg>
